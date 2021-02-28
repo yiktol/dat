@@ -30,3 +30,9 @@ aws ec2 authorize-security-group-ingress \
     --protocol tcp \
     --port 5439 \
     --cidr $vpcCidr
+
+
+
+#Clean Up
+aws ec2 delete-security-group \
+--group-id $sgId
