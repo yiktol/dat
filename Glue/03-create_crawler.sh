@@ -1,3 +1,8 @@
+#------------------------------------------------------------------------------
+# Create Glue Crawler
+#------------------------------------------------------------------------------
+
+
 iamRole=$(aws iam get-role \
     --role-name AWSGlueServiceRoleDefault \
     --query "Role.Arn" \
@@ -10,8 +15,11 @@ aws glue create-crawler \
 --description 'My Glue Crawler' \
 --targets S3Targets=[{Path="s3://$bucketname/inventory/"}] 
 
+#Start the Crawler
 aws glue start-crawler \
 --name awsglue-datasets
+
+
 
 
 #Clean Up

@@ -1,39 +1,28 @@
 #------------------------------------------------------------------------------
 # Create IAM Role and Policy
 #------------------------------------------------------------------------------
+roleName=AWSGlueServiceRoleDefault
+policyName=AWSGlueServiceRolePolicy 
 
-aws iam create-role --role-name AWSGlueServiceRoleDefault \
+
+aws iam create-role --role-name $roleName \
 --assume-role-policy-document file://configs/trust-policy.json
 
 aws iam put-role-policy \
---role-name AWSGlueServiceRoleDefault \
---policy-name AWSGlueServiceRolePolicy \
---policy-document file://configs/policy.json
+--role-name $roleName \
+--policy-name $policyName \
+--policy-document file://configs/firehose-to-s3-policy.json
 
-aws iam attach-role-policy \
---policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess \
---role-name AWSGlueServiceRoleDefault
-
-aws iam attach-role-policy \
---policy-arn arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole \
---role-name AWSGlueServiceRoleDefault
 
 aws iam get-role \
---role-name AWSGlueServiceRoleDefault
+--role-name $roleName
 
 
 #Clean Up
-aws iam detach-role-policy \
---policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess \
---role-name AWSGlueServiceRoleDefault
-
-aws iam detach-role-policy \
---policy-arn arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole \
---role-name AWSGlueServiceRoleDefault
 
 aws iam delete-role-policy \
---role-name AWSGlueServiceRoleDefault\
---policy-name AWSGlueServiceRolePolicy   
+--role-name $roleName\
+--policy-name $policyName  
 
 aws iam delete-role \
---role-name AWSGlueServiceRoleDefault
+--role-name $roleName
