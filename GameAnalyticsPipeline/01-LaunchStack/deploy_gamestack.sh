@@ -1,13 +1,13 @@
 #!/bin/bash
 
 
-echo 'Initializing Variables'
-sleep 1
+echo "Initializing Variables"
+sleep 2
 stackName='GameStack'
 bucketName='yikyakyukbucket01'
 
-echo 'Deploying GameStack'
-sleep 1
+echo "Deploying GameStack"
+sleep 2
 aws cloudformation deploy \
 --template-file game-analytics-pipeline.template.yaml \
 --stack-name $stackName \

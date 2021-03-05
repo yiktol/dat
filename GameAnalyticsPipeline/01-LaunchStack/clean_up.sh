@@ -1,6 +1,6 @@
 
 
-echo ' Initialise Variables'
+echo "Initialise Variables"
 sleep 2
 stackName='GameStack'
 bucketName='yikyakyukbucket01'
@@ -18,7 +18,7 @@ sleep 2
 buckets=$(aws s3api list-buckets | jq -r '.Buckets[].Name | select(startswith("gamestack"))')
 
 for bucket in $buckets; do
-echo $bucket
+echo 'Deleting Bucket ' $bucket
 
 #Delete Objects in a Bucket
 aws s3 rm s3://$bucket --recursive
@@ -43,7 +43,7 @@ sleep 2
 loggroups=$(aws logs describe-log-groups | jq -r '.logGroups[].logGroupName | select(startswith("/aws/lambda/GameStack")),select(startswith("API-Gateway-Execution-Logs")),select(startswith("/aws/kinesisfirehose/GameStack")),select(startswith("/aws/apigateway/welcome"))')
 
 for loggroup in $loggroups; do
-echo 'Deleting ' $loggroup
+echo 'Deleting LogGroup ' $loggroup
 aws logs delete-log-group --log-group-name $loggroup
 done
 

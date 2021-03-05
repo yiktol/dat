@@ -32,5 +32,8 @@ aws glue delete-table \
 --name $table
 done
 
+aws glue dete-database \
+--name $dbName
+
 aws glue delete-crawler \
 --name awsglue-datasets
