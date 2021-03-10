@@ -19,7 +19,7 @@ aws s3api create-bucket \
 
 
 #----------------------------------------------------------------------------------
-# Upload Data snd Script to S3 Bucket
+# Upload Data and Script to S3 Bucket
 #----------------------------------------------------------------------------------
 file='food_establishment_data.csv'
 aws s3api put-object \
@@ -82,7 +82,6 @@ aws emr describe-step \
 aws s3api get-object \
 --bucket $bucketname \
 --key output/%filename% output/%filename%
-
 
 #----------------------------------------------------------------------------------
 # Clean Up

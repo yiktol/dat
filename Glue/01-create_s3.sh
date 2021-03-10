@@ -30,12 +30,3 @@ done
 
 
 
-#Clean Up
-
-#Delete Objects in a Bucket
-aws s3 rm s3://$bucketname --recursive
-
-#Delete Bucket
-aws s3api delete-bucket \
---bucket $bucketname \
---region $region

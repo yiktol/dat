@@ -2,7 +2,6 @@
 # Create Glue Crawler
 #------------------------------------------------------------------------------
 
-
 iamRole=$(aws iam get-role \
     --role-name AWSGlueServiceRoleDefault \
     --query "Role.Arn" \
@@ -21,19 +20,3 @@ aws glue start-crawler \
 
 
 
-
-#Clean Up
-myFileNames=$(ls data)
-tables=$(echo $myFileNames | tr '.' '_')
-
-for table in $tables; do
-aws glue delete-table \
---database-name awsglue-datasets-database \
---name $table
-done
-
-aws glue dete-database \
---name $dbName
-
-aws glue delete-crawler \
---name awsglue-datasets

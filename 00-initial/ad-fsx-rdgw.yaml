@@ -1,0 +1,206 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: This template deploys a Managed Active Directory, Amazon FSx and Remote Desktop Gateway.
+
+Mappings:
+  AWSRegionToAMI:
+    ap-south-1:
+      AMI: ami-0fcd8d621cf9ab602
+    ap-southeast-1:
+      AMI: ami-0c65e8b52315f51f8
+    ap-southeast-2:
+      AMI: ami-0e952010fc45db537
+
+Parameters:
+  Environment:
+    Description: Please enter an environment resource tag to improve cost and usage reports
+    Type: String
+    Default: Development
+    AllowedValues:
+      - Development
+      - Staging
+      - Production
+  KeyName:
+    Description: Please enter the KeyName
+    Type: "AWS::EC2::KeyPair::KeyName"  
+  DomainName:
+    Description: Please enter the Active Directory Domain Name
+    Type: String
+    Default: "et.local"
+
+Resources:
+  RDGWInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: 
+        Fn::FindInMap:
+          - AWSRegionToAMI
+          - !Ref AWS::Region
+          - AMI
+      KeyName: !Ref KeyName
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      InstanceType: "t3.medium"
+      SsmAssociations:
+      - DocumentName:
+          Ref: ADJoinDocument
+        AssociationParameters:
+        - Key: directoryId
+          Value:
+          - !Ref ActiveDirectory
+        - Key: directoryName
+          Value:
+          - !Ref DomainName
+        - Key: dnsIpAddresses
+          Value:
+            Fn::GetAtt:
+            - ActiveDirectory
+            - DnsIpAddresses
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet:
+            - Fn::ImportValue: 
+                !Sub "${Environment}-RDPGWSecurityGroupId"
+          SubnetId:
+            Fn::ImportValue: 
+                !Sub "${Environment}-PublicSubnetAZ1Id"
+      UserData: 
+        Fn::Base64: "<powershell> Install-WindowsFeature RSAT-AD-Tools -IncludeAllSubFeature <powershell>"
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-RDGW
+        - Key: Environment
+          Value: !Ref Environment
+  ActiveDirectory:
+    Type: AWS::DirectoryService::MicrosoftAD
+    Properties:
+      Edition: "Standard"
+      Name: !Ref DomainName
+      Password: "{{resolve:ssm-secure:/et.local/AdminPassword:1}}"
+      ShortName: "ET"
+      VpcSettings:
+        SubnetIds:
+          - Fn::ImportValue: 
+              !Sub "${Environment}-PrivateSubnetAZ1Id"
+          - Fn::ImportValue: 
+              !Sub "${Environment}-PrivateSubnetAZ2Id"
+        VpcId: 
+          Fn::ImportValue: 
+            !Sub "${Environment}-VpcId"
+  FSxWindowsFileSystem:
+    Type: "AWS::FSx::FileSystem"
+    Properties:
+      FileSystemType: WINDOWS
+      StorageCapacity: 32
+      StorageType: SSD
+      SubnetIds:
+        - Fn::ImportValue: 
+            !Sub "${Environment}-PrivateSubnetAZ1Id"
+        - Fn::ImportValue: 
+            !Sub "${Environment}-PrivateSubnetAZ2Id"
+      SecurityGroupIds:
+        - Fn::ImportValue: 
+            !Sub "${Environment}-FSxSecurityGroupId"
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-FSx"
+      WindowsConfiguration:
+        ActiveDirectoryId: !Ref ActiveDirectory
+        ThroughputCapacity: 8
+        Aliases:
+          - fsx.et.local
+        AutomaticBackupRetentionDays: 0
+        DeploymentType: MULTI_AZ_1
+        PreferredSubnetId: 
+          Fn::ImportValue: 
+            !Sub "${Environment}-PrivateSubnetAZ1Id"
+        CopyTagsToBackups: false
+  DhcpOptions:
+    Type: AWS::EC2::DHCPOptions
+    Properties:
+      DomainName: !Ref DomainName
+      DomainNameServers: !GetAtt ActiveDirectory.DnsIpAddresses
+      NtpServers: !GetAtt ActiveDirectory.DnsIpAddresses
+      NetbiosNameServers: !GetAtt ActiveDirectory.DnsIpAddresses
+      NetbiosNodeType: 2
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-DhcpOption"
+  VPCDHCPOptionsAssociation:
+    Type: AWS::EC2::VPCDHCPOptionsAssociation
+    Properties:
+      VpcId:
+        Fn::ImportValue: 
+          !Sub "${Environment}-VpcId"
+      DhcpOptionsId: !Ref DhcpOptions
+  ADJoinDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Content:
+        schemaVersion: '1.2'
+        description: Join instances to an AWS Directory Service domain.
+        parameters:
+          directoryId:
+            type: String
+            description: "(Required) The ID of the AWS Directory Service directory."
+          directoryName:
+            type: String
+            description: "(Required) The name of the directory. For example, test.example.com"
+          dnsIpAddresses:
+            type: StringList
+            default: []
+            description: "(Optional) The IP addresses of the DNS servers in the directory.
+              Required when DHCP is not configured. For more information"
+            allowedPattern: "((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
+        runtimeConfig:
+          aws:domainJoin:
+            properties:
+              directoryId: "{{ directoryId}}"
+              directoryName: "{{ directoryName }}"
+              dnsIpAddresses: "{{ dnsIpAddresses }}"
+  EC2RoleforSSM:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy
+        - arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonSSMDirectoryServiceAccess
+        - arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess
+      Path: /
+      Policies:
+        - PolicyName: AmazonEC2RoleforSSM
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 'ssm:CreateAssociation'
+                Resource: '*'
+  EC2InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref EC2RoleforSSM
+
+
+Outputs:
+  ActiveDirectoryId:
+    Description: Active Directory Id
+    Value: !Ref ActiveDirectory
+    Export:
+      Name: !Sub "${Environment}-ActiveDirectoryId"
+  FileSystemId:
+    Description: Amazon FSx Id
+    Value: !Ref FSxWindowsFileSystem
+    Export:
+      Name: !Sub "${Environment}-FileSystemId"
