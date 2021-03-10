@@ -1,3 +1,0 @@
-copy category from 's3://mybucket-wigmjrdk/tickit/category_pipe.txt' 
-credentials 'aws_iam_role=arn:aws:iam::875692608981:role/myRedshiftRole' 
-delimiter '|' region 'ap-southeast-1';
